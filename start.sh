@@ -16,4 +16,4 @@ fi
 
 # Finally, start the main Node processes (the VITE static server and the cc-mobile relay)
 echo "Starting cc-mobile relay and web server..."
-exec npm run start
+exec npm run start:node

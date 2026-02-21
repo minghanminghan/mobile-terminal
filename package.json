@@ -10,7 +10,8 @@
     "dev:relay": "npm run dev -w relay",
     "dev:web": "npm run dev -w web",
     "build": "npm run build -w web",
-    "start": "npm run start -w relay"
+    "start:node": "npm run start -w relay",
+    "start": "./start.sh"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
