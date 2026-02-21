@@ -1,0 +1,10 @@
+node_modules/
+web/node_modules/
+relay/node_modules/
+mobile/
+.git
+.vscode
+.claude
+.env
+web/dist/
+npm-debug.log

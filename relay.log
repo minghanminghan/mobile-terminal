@@ -1,0 +1,27 @@
+[2026-02-20T04:23:21.724Z] Relay listening on ws://localhost:3001
+[2026-02-20T04:23:58.151Z] [connection] New WebSocket connection
+[2026-02-20T04:23:58.152Z] [connect] Connecting to andrew_j/andre@127.0.0.1:22 (Shell: wsl)
+[2026-02-20T04:23:58.155Z] [buffering] Buffering resize message during handshake
+[2026-02-20T04:23:58.207Z] [ssh] Authentication successful
+[2026-02-20T04:23:58.223Z] [ssh] Remote forwarding listening on port 62786
+[2026-02-20T04:23:58.223Z] [ssh] Starting shell with size 232x54
+[2026-02-20T04:23:58.224Z] [ssh] Spawning command: wsl tmux new-session -A -s cc
+[2026-02-20T04:23:58.229Z] [ssh] Shell started
+[2026-02-20T04:27:32.993Z] [ssh] Shell closed
+[2026-02-20T04:27:32.994Z] [ws] Client disconnected
+[2026-02-20T04:27:32.994Z] [cleanup] Closing session
+[2026-02-20T04:27:32.996Z] [ssh] Error: read ECONNRESET
+[2026-02-20T04:27:32.997Z] [error] Sending error to client: read ECONNRESET
+[2026-02-20T04:27:36.616Z] [connection] New WebSocket connection
+[2026-02-20T04:27:36.617Z] [connect] Connecting to andrew_j/andre@127.0.0.1:22 (Shell: wsl)
+[2026-02-20T04:27:36.619Z] [buffering] Buffering resize message during handshake
+[2026-02-20T04:27:36.669Z] [ssh] Authentication successful
+[2026-02-20T04:27:36.684Z] [ssh] Remote forwarding listening on port 62107
+[2026-02-20T04:27:36.685Z] [ssh] Starting shell with size 232x54
+[2026-02-20T04:27:36.685Z] [ssh] Spawning command: wsl tmux new-session -A -s cc
+[2026-02-20T04:27:36.689Z] [ssh] Shell started
+[2026-02-20T04:31:13.818Z] [ssh] Shell closed
+[2026-02-20T04:31:13.819Z] [ws] Client disconnected
+[2026-02-20T04:31:13.819Z] [cleanup] Closing session
+[2026-02-20T04:31:13.821Z] [ssh] Error: read ECONNRESET
+[2026-02-20T04:31:13.821Z] [error] Sending error to client: read ECONNRESET

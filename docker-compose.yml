@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  cc-mobile:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173" # Web Frontend port
+      - "3001:3001" # Relay WebSocket port
+    restart: unless-stopped
+    # If the relay needs to SSH into the host machine that Docker is running on,
+    # uncomment the following line (Linux only) to allow connection to localhost.
+    # network_mode: "host"

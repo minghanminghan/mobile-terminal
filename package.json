@@ -1,0 +1,19 @@
+{
+  "name": "cc-mobile",
+  "private": true,
+  "workspaces": [
+    "relay",
+    "web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n relay,web -c cyan,green \"npm run dev -w relay\" \"npm run dev -w web\"",
+    "dev:relay": "npm run dev -w relay",
+    "dev:web": "npm run dev -w web",
+    "build": "npm run build -w web",
+    "start": "concurrently -n relay,web -c cyan,green \"npm run start -w relay\" \"npx serve -s web/dist -l 5173\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "serve": "^14.2.4"
+  }
+}
