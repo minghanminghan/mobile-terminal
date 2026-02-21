@@ -5,6 +5,7 @@ import { WebSocketServer, WebSocket } from 'ws'
 import type { RawData } from 'ws'
 import { Client, type ConnectConfig } from 'ssh2'
 import type { ClientChannel } from 'ssh2'
+import { SocksClient } from 'socks'
 const PORT = parseInt(process.env.PORT ?? '3001', 10)
 
 function log(message: string) {
@@ -212,7 +213,33 @@ wss.on('connection', (ws: WebSocket) => {
     if (msg.password) config.password = msg.password
     if (msg.privateKey) config.privateKey = msg.privateKey
 
-    ssh.connect(config)
+    // Check if the destination is a Tailscale IP (100.x.x.x block)
+    if (msg.host.startsWith('100.')) {
+      log(`[proxy] Tailscale IP detected, establishing SOCKS5 connection to localhost:1055`)
+      SocksClient.createConnection({
+        proxy: {
+          host: '127.0.0.1', // App Platform tailscaled userspace socks5 proxy
+          port: 1055,
+          type: 5
+        },
+        command: 'connect',
+        destination: {
+          host: msg.host,
+          port: msg.port ?? 22
+        }
+      }).then((info) => {
+        log(`[proxy] SOCKS5 connection established, handing socket to ssh2`)
+        config.sock = info.socket
+        ssh!.connect(config)
+      }).catch((err) => {
+        log(`[proxy] SOCKS5 connection failed: ${err.message}`)
+        sendError(`SOCKS5 Proxy Error: ${err.message}`)
+        ws.close()
+      })
+    } else {
+      // Direct connection for non-Tailscale IPs
+      ssh!.connect(config)
+    }
   })
 
   ws.on('close', () => {
