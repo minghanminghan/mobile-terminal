@@ -1,62 +1,132 @@
 # cc-mobile
 
-`cc-mobile` is a powerful, self-hosted web and native mobile application that transforms your smartphone or tablet into a first-class remote development environment. Designed to solve the friction of tiny on-screen keyboards and clumsy SSH clients, `cc-mobile` relies on a novel Node.js WebSocket relay and heavy `tmux` integration to provide a fully responsive, session-persistent, touch-optimized terminal.
+Use Claude Code from any browser or phone. SSH into your dev server and get a full interactive terminal — no local dev environment required.
 
 ---
 
-## 🏗 Architecture
+## Features
 
-The project consists of three deeply integrated layers:
+### Seamless Session Continuity
+Start work on your laptop, close the browser, reopen on your phone, and pick up exactly where you left off. The relay uses `tmux new-session -A -D` to attach existing sessions and resize them to fit whatever screen is connecting.
 
-1.  **`relay/` (Node.js backend)**
-    *   A local WebSocket server that bridges the gap between browser-based terminal emulators and native SSH binaries.
-    *   Utilizes the `ssh2` package to establish raw SSH connections.
-    *   Intelligently injects initial SSH commands (like auto-spawning `tmux` or navigating to project paths) and forwards standard I/O streams and resize events between the client and the remote host.
-
-2.  **`web/` (React + Vite Frontend)**
-    *   The core terminal renderer powered by **xterm.js**.
-    *   Features a custom-built, touch-optimized React Context Menu that intercepts long-presses to trigger native `tmux` window management (splits, zoom, kill).
-    *   Fully manages connection state, profiles, and credentials using secure browser APIs (`sessionStorage` for keys/passwords, `localStorage` for metadata).
-
-3.  **`mobile/` (React Native + Expo Wrapper)**
-    *   A native iOS/Android shell that wraps the identical Vite frontend via a secure `react-native-webview`.
-    *   Bypasses insecure browser limits by utilizing `expo-secure-store` (iOS Keychain / Android Keystore) to safely persist SSH passwords and PEM keys across app launches.
-    *   Renders a custom Virtual Keyboard overlay directly below the web terminal, injecting hardware modifier flags (Ctrl, Alt, Shift) down into the xterm context.
-
----
-
-## ✨ Features
-
-### Seamless Continuity
-Start a build on your laptop, close your browser, open the app on your phone on the train, and instantly pick up exactly where you left off. The backend automatically leverages `tmux new-session -A -D` to attach and detach clients, dynamically resizing pane layouts to fit whatever screen dimensions are currently requesting the stream.
-
-### Unified "Projects" Tab
-Navigating profound directory structures on a phone keyboard is a nightmare. `cc-mobile` allows you to save profiles with an associated **Project Path**. Connecting to a Project bypasses your home directory and instructs `tmux` to initialize all subsequent terminal panes rooted directly in your workspace (`tmux -c /path`).
+### Connection Profiles
+Save SSH credentials and project paths for one-tap reconnect. Secrets (passwords, private keys) are stored in `sessionStorage` on web (cleared when the tab closes) and in the platform keychain on mobile (iOS Keychain / Android Keystore) — never on the relay server.
 
 ### Touch-Optimized UX
-We bypass traditional terminal emulators' weaknesses on mobile devices:
-*   **Long-Press Menu**: Replaces keyboard shortcuts for tmux on mobile for pane management.
-*   **Virtual Control Row**: A native scrolling bar at the bottom of the screen provides fast access to `TAB`, `ESC`, Arrow Keys, and toggleable `CTRL`, `ALT`, and `SHIFT` states—making operations like `Ctrl+C` (SIGINT) effortless.
-*   **Native Mouse Mode**: `tmux` mouse mode is enabled by default, allowing you to drag pane borders with your finger to resize them dynamically.
+- **Virtual control row** — scrollable bar with ESC, TAB, CTRL, ALT, SHIFT, DEL, and arrow keys
+- **Long-press context menu** — trigger tmux pane operations (split horizontal/vertical, swap, zoom, kill) without keyboard shortcuts
+- **Native mouse mode** — drag tmux pane borders with your finger to resize
 
-### Ephemeral Secrets
-When using the web interface, your passwords and private keys are never stored on disk. They live entirely in memory (`sessionStorage`) and disappear the moment you close the tab. On mobile, they are vaulted using hardware encryption, then injected securely upon boot.
+### Voice Input
+Tap the mic button in the virtual keyboard row to dictate instead of type. Transcription runs on-device via the browser's Web Speech API — no cloud API, no external requests. The result appears in an editable preview overlay before anything is sent to the terminal, so a mis-heard command can't execute before you catch it.
+
+Supported on Chrome, Edge, and Safari (iOS 14.5+). The button is hidden automatically on unsupported browsers.
+
+### Tailscale Integration
+Set `TAILSCALE_AUTH_KEY` and the relay joins your Tailscale network on boot. Use Tailscale IPs (`100.x.x.x`) as the SSH host to reach machines on your Tailnet without any port forwarding or exposing services to the internet.
+
+### Project Path Navigation
+Save a project path per profile. On connect, tmux initializes all panes rooted in that directory — no manual `cd` after every reconnect.
 
 ---
 
-## 🚀 Getting Started
+## Architecture
 
-To launch the local development environment:
+```
+[Browser / React Native WebView]
+   xterm.js terminal
+        |
+        | WebSocket
+        |
+[Relay Server — Node.js, port 3001]
+   Express (static files) + ws + ssh2
+        |
+        | SSH
+        |
+[Your Remote Server]
+   tmux → shell → claude CLI
+```
+
+The relay is stateless. It accepts a WebSocket, opens an SSH PTY on the remote server, and pipes raw bytes in both directions. Credentials are never written to disk on the relay.
+
+### Layers
+
+**`relay/`** — Node.js WebSocket-to-SSH bridge. Handles the connect/resize message protocol, spawns a tmux session on the remote, and forwards I/O.
+
+**`web/`** — React + Vite frontend. Runs xterm.js, manages profiles, handles touch events, and renders the virtual keyboard (including voice input).
+
+**`mobile/`** — React Native + Expo shell. Wraps the web frontend in a WebView, injects credentials on load, and provides native secure storage.
+
+---
+
+## Quick Start
+
+### Docker
 
 ```bash
-# clone repo
-git clone https://github.com/minghanminghan/cc-mobile.git
-
-# Start both the Node WebSocket relay and the Vite Web frontend concurrently
-npm install
-npm run dev
-
-# In a separate terminal, launch the React Native native bundler
-cd mobile
-npx expo start
+docker build -t cc-mobile .
+docker run -p 3001:3001 cc-mobile
 ```
+
+Open `http://localhost:3001`.
+
+### With Tailscale
+
+```bash
+docker run -p 3001:3001 \
+  -e TAILSCALE_AUTH_KEY=tskey-auth-... \
+  cc-mobile
+```
+
+The container registers as `cc-mobile-app` on your Tailnet. Approve the device in the Tailscale admin console on first run, or use a pre-approved auth key.
+
+### Without Docker
+
+```bash
+npm install
+npm run build -w web       # build the React frontend
+npm run start:node         # relay + static server on :3001
+```
+
+### Development
+
+```bash
+npm install
+npm run dev -w web         # Vite dev server on :5173 with HMR
+npm run dev -w relay       # relay on :3001 with ts watch
+
+# Mobile
+cd mobile && npx expo start
+```
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `3001` | Port the relay and web server listen on |
+| `TAILSCALE_AUTH_KEY` | — | If set, starts Tailscale and joins your Tailnet on boot |
+
+---
+
+## Security
+
+- Credentials are sent once over the WebSocket and held in memory only for the duration of the SSH session
+- Private keys are never written to disk on the relay
+- Web: secrets live in `sessionStorage` and are cleared when the tab closes
+- Mobile: secrets are encrypted via `expo-secure-store` (iOS Keychain / Android Keystore)
+- Voice input uses the browser's on-device speech engine — no audio leaves the device
+
+---
+
+## Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS 4 |
+| Terminal | xterm.js (fit + web-links addons) |
+| Relay | Node.js 22, Express, `ws`, `ssh2` |
+| Mobile | React Native, Expo, WebView, expo-secure-store |
+| Networking | Tailscale (optional), SOCKS5 proxy support |
+| Deployment | Docker (Alpine Linux, Node.js 22) |

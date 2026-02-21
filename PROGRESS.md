@@ -303,3 +303,54 @@ if (injected) {
 6. Background the app, foreground it — session is still live (M3 persistence)
 7. Test on a physical iOS device and physical Android device
 8. Verify private key is stored encrypted (check that it does not appear in plain text in app storage)
+
+---
+
+## M6 — Voice-to-Text Input
+**Goal:** Let mobile users dictate text instead of typing. A mic button in the virtual keyboard row starts speech recognition; transcribed text appears in an editable preview overlay before being sent to the terminal.
+
+**Approach:** Use the browser's built-in Web Speech API (`webkitSpeechRecognition`) — no external API, no new packages, no backend changes. The mic button only renders if the API is available in the current browser, so unsupported browsers see no change. Transcribed text is never injected directly into the terminal; it always passes through an editable preview step first, preventing accidental command execution.
+
+### Steps
+
+#### 1. Add voice input state to `VirtualKeyboard.tsx`
+- Add `isListening: boolean` state — controls mic button appearance and recognition lifecycle
+- Add `preview: string | null` state — holds transcribed text; `null` means overlay is hidden
+- Add `speechRef` ref to hold the `SpeechRecognition` instance across renders
+- Add `supported` constant: `!!(window.SpeechRecognition ?? window.webkitSpeechRecognition)` — gates rendering of the mic button
+
+#### 2. Implement `startListening()` helper
+- Instantiate `SpeechRecognition` (prefixed or unprefixed)
+- Set `lang = 'en-US'`, `interimResults = false`, `maxAlternatives = 1`
+- `onresult`: take `event.results[0][0].transcript`, set `preview` to that string, set `isListening = false`
+- `onerror` / `onend`: set `isListening = false`
+- Call `recognition.start()` and set `isListening = true`
+- Store instance in `speechRef` so `stopListening()` can call `recognition.abort()`
+
+#### 3. Add mic button to the key row
+- Append a mic button after the existing virtual keys (outside the `VIRTUAL_KEYS` array — it has distinct behaviour)
+- While `isListening`: red background, pulsing ring animation, tapping again calls `stopListening()`
+- While idle: standard zinc-800 style, tapping calls `startListening()`
+- Use an inline SVG mic icon to avoid adding an icon package
+
+#### 4. Add preview overlay
+- Render only when `preview !== null`
+- Fixed panel anchored above the virtual keyboard row (use `fixed bottom-[56px]` to clear the key row height)
+- Contains:
+  - A `<textarea>` pre-filled with `preview`, `onChange` updates `preview` state so user can edit before sending
+  - **Send** button: calls `(window as any).__INJECT_TERMINAL_DATA__(preview)` then sets `preview = null`
+  - **Cancel** button: sets `preview = null`
+- Tapping Send does **not** append `\r` — the user presses Enter in the terminal if they want to execute
+
+### Verification
+1. Open the web app on Chrome or Safari (desktop or mobile — narrow the window to ≤ 767px wide to make the virtual keyboard visible)
+2. Connect to an SSH session and reach the terminal view
+3. Confirm the virtual keyboard row is visible and a microphone icon button appears at the right end
+4. Tap the mic button — the browser prompts for microphone permission; grant it
+5. Speak a short phrase, e.g. **"git status"**
+6. Confirm the mic button turns red with a pulsing animation while listening
+7. After speaking, confirm a preview overlay appears above the key row containing the transcribed text in an editable box
+8. Edit the text in the overlay to correct any mis-transcription
+9. Tap **Send** — the text is injected at the terminal cursor; the overlay closes; nothing is auto-executed (no Enter sent)
+10. Repeat: speak, then tap **Cancel** — the overlay closes and nothing is sent to the terminal
+11. On Firefox (no `webkitSpeechRecognition`): confirm the mic button does not appear and all other virtual keys still work
