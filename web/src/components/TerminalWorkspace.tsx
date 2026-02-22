@@ -48,7 +48,7 @@ export default function TerminalWorkspace({ credentials, onDisconnect }: Props) 
             {/* Top Navigation Bar */}
             <div className="flex items-center justify-between px-4 py-2 bg-zinc-900 border-b border-zinc-800 shrink-0 z-20">
                 <div className="flex items-center gap-4">
-                    <span className="text-zinc-400 text-xs font-mono font-bold">cc-mobile</span>
+                    <span className="text-zinc-400 text-xs font-mono font-bold">mobile-terminal</span>
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="text-zinc-500 text-xs font-mono hidden sm:block">
@@ -121,7 +121,7 @@ export default function TerminalWorkspace({ credentials, onDisconnect }: Props) 
                         <div className="flex items-center justify-between">
                             <div>
                                 <h2 className="text-zinc-100 font-semibold text-sm">AI Agent Hooks</h2>
-                                <p className="text-zinc-500 text-xs mt-0.5">Optional — enables completion signals in cc-mobile</p>
+                                <p className="text-zinc-500 text-xs mt-0.5">Optional — enables completion signals in mobile-terminal</p>
                             </div>
                             <button onClick={() => { setShowSetup(false); setCopied(false) }} className="text-zinc-500 hover:text-zinc-300 cursor-pointer">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -131,7 +131,7 @@ export default function TerminalWorkspace({ credentials, onDisconnect }: Props) 
                         </div>
 
                         <p className="text-zinc-400 text-xs leading-relaxed">
-                            Run this once on your remote server. It configures Claude Code, Codex, Gemini CLI, and OpenCode to notify cc-mobile when a task finishes — no cloud API, signals travel through the existing terminal connection.
+                            Run this once on your remote server. It configures Claude Code, Codex, Gemini CLI, and OpenCode to notify mobile-terminal when a task finishes — no cloud API, signals travel through the existing terminal connection.
                         </p>
 
                         <div className="flex items-center gap-2 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5">

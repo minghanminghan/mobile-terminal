@@ -1,10 +1,25 @@
 # mobile-terminal
 
-Use Claude Code from any browser or phone. SSH into your dev server and get a full interactive terminal -- no local dev environment required.
+Use your terminal coding agents from any browser or phone. SSH into your dev server and get a full interactive terminal -- no local dev environment required. mobile-terminal supports Claude Code, Codex CLI, Gemini CLI, Opencode.
 
 ---
 
 ## Features
+
+### Coding Agent Hooks
+
+Run a one-time install script on your remote server and mobile-terminal will display a banner whenever a coding agent finishes a task — no polling, no watching the screen. Signals travel through the existing SSH connection as OSC escape sequences, so there is no cloud API, no webhook, and nothing new to expose to the internet.
+
+When a task completes, a green **Task complete · claude** banner appears at the top of the terminal and auto-dismisses after five seconds. Notifications (mid-task pings) appear as a blue bell banner.
+
+Supported tools and how each integrates:
+
+- **Claude Code** — adds `Stop` and `Notification` hooks to `~/.claude/settings.json`. Use `claude` as normal.
+- **Codex CLI** — enables native OSC 9 notifications in `~/.codex/config.toml`. Use `codex` as normal.
+- **Gemini CLI** — installs a `mobile-gemini` wrapper that signals on exit. Use `mobile-gemini` instead of `gemini`.
+- **OpenCode** — installs a `mobile-opencode` wrapper. Use `mobile-opencode` instead of `opencode`.
+
+Access the install command from the **Settings → AI Agent Hooks** menu inside the terminal, or see the [AI Agent Hooks](#ai-agent-hooks-optional) section below.
 
 ### Seamless Session Continuity
 Start work on your laptop, close the browser, reopen on your phone, and pick up exactly where you left off. The relay uses `tmux new-session -A -D` to attach existing sessions and resize them to fit whatever screen is connecting.
@@ -20,13 +35,8 @@ Save SSH credentials and project paths for one-tap reconnect. Secrets (passwords
 ### Voice Input
 Tap the mic button in the virtual keyboard row to dictate instead of type. Transcription runs on-device via the browser's Web Speech API -- no cloud API, no external requests. The result appears in an editable preview overlay before anything is sent to the terminal, so a mis-heard command can't execute before you catch it.
 
-Supported on Chrome, Edge, and Safari (iOS 14.5+). The button is hidden automatically on unsupported browsers.
-
 ### Tailscale Integration
 Set `TAILSCALE_AUTH_KEY` and the relay joins your Tailscale network on boot. Use Tailscale IPs (`100.x.x.x`) as the SSH host to reach machines on your Tailnet without any port forwarding or exposing services to the internet.
-
-### Project Path Navigation
-Save a project path per profile. On connect, tmux initializes all panes rooted in that directory -- no manual `cd` after every reconnect.
 
 ---
 
@@ -51,6 +61,8 @@ Save a project path per profile. On connect, tmux initializes all panes rooted i
 ### Recommended (Optional)
 
 **Tailscale** -- Lets you connect to your machine using a private Tailscale IP (`100.x.x.x`) instead of opening a port to the public internet. Install it on the machine you want to SSH into and on the device running the relay. See the Tailscale step in the setup guide below.
+
+**Browser with Web Speech API** -- Voice to text is supported on Chrome, Edge, and Safari (iOS 14.5+). The button is hidden automatically on unsupported browsers.
 
 ---
 
@@ -96,7 +108,13 @@ The relay is stateless. It accepts a WebSocket, opens an SSH PTY on the remote s
 
 ---
 
-## Quick Start (requires existing SSH server)
+## Quick Start
+
+### Cloning Repo
+
+```bash
+git clone https://github.com/minghanminghan/mobile-terminal.git
+```
 
 ### Docker
 

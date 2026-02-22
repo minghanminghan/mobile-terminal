@@ -5,7 +5,17 @@ import { WebSocketServer, WebSocket } from 'ws'
 import type { RawData } from 'ws'
 import { Client, type ConnectConfig } from 'ssh2'
 import type { ClientChannel } from 'ssh2'
+import { SocksClient } from 'socks'
+
 const PORT = parseInt(process.env.PORT ?? '3001', 10)
+
+// Tailscale assigns IPs in the CGNAT range 100.64.0.0/10 (100.64.x.x – 100.127.x.x).
+// With --tun=userspace-networking there is no kernel TUN device, so the OS has no
+// route to 100.x.x.x addresses. Traffic must go through Tailscale's SOCKS5 proxy.
+function isTailscaleIP(host: string): boolean {
+  const parts = host.split('.').map(Number)
+  return parts.length === 4 && parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127
+}
 
 function log(message: string) {
   const timestamp = new Date().toISOString()
@@ -78,7 +88,7 @@ wss.on('connection', (ws: WebSocket) => {
     }
   }
 
-  ws.on('message', (raw: RawData, isBinary: boolean) => {
+  ws.on('message', async (raw: RawData, isBinary: boolean) => {
     // 1. Shell is open — forward input or handle control messages
     if (shell) {
       if (!isBinary) {
@@ -203,8 +213,29 @@ wss.on('connection', (ws: WebSocket) => {
     })
 
     ssh.on('error', (err) => {
+      const isTailscale = isTailscaleIP(msg.host)
+      const usingSocks5 = !!process.env.TAILSCALE_SOCKS5
+
+      let detail = err.message
+      if (err.message.includes('Timed out while waiting for handshake')) {
+        if (isTailscale && !usingSocks5) {
+          detail = `SSH handshake timed out. Target is a Tailscale IP (${msg.host}) but TAILSCALE_SOCKS5 is not set — the relay has no route to this address. Ensure Tailscale is running natively on the relay machine, or set TAILSCALE_SOCKS5 if running in Docker.`
+        } else if (isTailscale && usingSocks5) {
+          detail = `SSH handshake timed out via SOCKS5. The SOCKS5 tunnel connected but the SSH server at ${msg.host}:${msg.port ?? 22} did not respond — check that sshd is running on the target and that Tailscale ACLs allow port ${msg.port ?? 22}.`
+        } else {
+          detail = `SSH handshake timed out connecting to ${msg.host}:${msg.port ?? 22} — check that the host is reachable and sshd is running.`
+        }
+      } else if (err.message.includes('All configured authentication methods failed')) {
+        detail = `Authentication failed for ${msg.username}@${msg.host} — check your password or private key.`
+      } else if (err.message.includes('ECONNREFUSED')) {
+        detail = `Connection refused at ${msg.host}:${msg.port ?? 22} — sshd may not be running on that port.`
+      } else if (err.message.includes('ENOTFOUND') || err.message.includes('ENOENT')) {
+        detail = `Host not found: ${msg.host} — check the hostname or IP address.`
+      }
+
       log(`[ssh] Error: ${err.message}`)
-      sendError(err.message)
+      log(`[ssh] Diagnostic: ${detail}`)
+      sendError(detail)
       ws.close()
     })
 
@@ -218,6 +249,36 @@ wss.on('connection', (ws: WebSocket) => {
     if (msg.password) config.password = msg.password
     if (msg.privateKey) config.privateKey = msg.privateKey
 
+    // Tailscale userspace networking has no kernel routes for 100.x.x.x —
+    // connect through Tailscale's local SOCKS5 proxy and hand the socket to ssh2.
+    // TAILSCALE_SOCKS5 is only set in Docker (start.sh); in native dev the OS
+    // already routes Tailscale IPs through the kernel TUN device.
+    const socks5Addr = process.env.TAILSCALE_SOCKS5
+    if (isTailscaleIP(msg.host)) {
+      if (socks5Addr) {
+        const [proxyHost, proxyPortStr] = socks5Addr.split(':')
+        const proxyPort = parseInt(proxyPortStr ?? '1055', 10)
+        log(`[socks5] Tailscale IP detected — connecting via SOCKS5 proxy at ${socks5Addr}`)
+        try {
+          const { socket } = await SocksClient.createConnection({
+            proxy: { host: proxyHost, port: proxyPort, type: 5 },
+            command: 'connect',
+            destination: { host: msg.host, port: msg.port ?? 22 },
+          })
+          config.sock = socket
+          log(`[socks5] SOCKS5 tunnel established to ${msg.host}:${msg.port ?? 22}`)
+        } catch (err: any) {
+          log(`[socks5] SOCKS5 connection failed: ${err.message}`)
+          sendError(`Tailscale SOCKS5 unavailable — is Tailscale running? (${err.message})`)
+          ws.close()
+          return
+        }
+      } else {
+        log(`[connect] Tailscale IP detected — TAILSCALE_SOCKS5 not set, attempting direct connection (requires native Tailscale on this machine)`)
+      }
+    }
+
+    log(`[ssh] Initiating SSH handshake to ${msg.host}:${msg.port ?? 22} (auth: ${msg.password ? 'password' : 'key'})`)
     ssh.connect(config)
   })
 
