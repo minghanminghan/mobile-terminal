@@ -1,10 +1,18 @@
 import { useRef, useState } from 'react';
-import { StyleSheet, StatusBar, Platform, View, TouchableOpacity, Text, ScrollView, TextInput } from 'react-native';
+import { StyleSheet, StatusBar, Platform, View, TouchableOpacity, Text, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import type { RootStackParamList } from '../../App';
+
+// VOICE TO TEXT — ready to enable, blocked by mac/windows build toolchain incompatibility.
+// To re-enable:
+//   1. Uncomment the import below
+//   2. Uncomment the voice state, event hooks, and handlers in the component body
+//   3. Uncomment the preview overlay JSX and mic button in the keyboard row
+//   4. Uncomment the voice-related styles at the bottom
+//   5. Restore TextInput to the react-native import above
+// import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 
 // In development, you usually need to point to your computer's local IP address
 // Because the iOS Simulator / Android Emulator is running on a different network interface
@@ -33,41 +41,43 @@ export default function TerminalScreen({ route, navigation }: Props) {
     const [ctrlActive, setCtrlActive] = useState(false);
     const [altActive, setAltActive] = useState(false);
     const [shiftActive, setShiftActive] = useState(false);
-    const [isListening, setIsListening] = useState(false);
-    const [preview, setPreview] = useState<string | null>(null);
 
-    useSpeechRecognitionEvent('start', () => setIsListening(true));
-    useSpeechRecognitionEvent('end', () => setIsListening(false));
-    useSpeechRecognitionEvent('error', () => setIsListening(false));
-    useSpeechRecognitionEvent('result', (event) => {
-        const transcript = event.results[0]?.transcript;
-        if (event.isFinal && transcript) {
-            setPreview(transcript);
-        }
-    });
-
-    const startListening = async () => {
-        const { granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-        if (!granted) return;
-        ExpoSpeechRecognitionModule.start({ lang: 'en-US', interimResults: false });
-    };
-
-    const stopListening = () => {
-        ExpoSpeechRecognitionModule.stop();
-    };
-
-    const sendPreview = () => {
-        if (preview !== null) {
-            const js = `
-                if (window.__INJECT_TERMINAL_DATA__) {
-                    window.__INJECT_TERMINAL_DATA__(${JSON.stringify(preview)});
-                }
-                true;
-            `;
-            webviewRef.current?.injectJavaScript(js);
-        }
-        setPreview(null);
-    };
+    // VOICE TO TEXT — uncomment to enable (see note at top of file)
+    // const [isListening, setIsListening] = useState(false);
+    // const [preview, setPreview] = useState<string | null>(null);
+    //
+    // useSpeechRecognitionEvent('start', () => setIsListening(true));
+    // useSpeechRecognitionEvent('end', () => setIsListening(false));
+    // useSpeechRecognitionEvent('error', () => setIsListening(false));
+    // useSpeechRecognitionEvent('result', (event) => {
+    //     const transcript = event.results[0]?.transcript;
+    //     if (event.isFinal && transcript) {
+    //         setPreview(transcript);
+    //     }
+    // });
+    //
+    // const startListening = async () => {
+    //     const { granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    //     if (!granted) return;
+    //     ExpoSpeechRecognitionModule.start({ lang: 'en-US', interimResults: false });
+    // };
+    //
+    // const stopListening = () => {
+    //     ExpoSpeechRecognitionModule.stop();
+    // };
+    //
+    // const sendPreview = () => {
+    //     if (preview !== null) {
+    //         const js = `
+    //             if (window.__INJECT_TERMINAL_DATA__) {
+    //                 window.__INJECT_TERMINAL_DATA__(${JSON.stringify(preview)});
+    //             }
+    //             true;
+    //         `;
+    //         webviewRef.current?.injectJavaScript(js);
+    //     }
+    //     setPreview(null);
+    // };
 
     // We inject the entire profile object (including passwords/private keys) into the window
     // The web app will read this on boot and immediately connect.
@@ -142,8 +152,8 @@ export default function TerminalScreen({ route, navigation }: Props) {
                 scalesPageToFit={Platform.OS === 'android'}
             />
 
-            {/* Voice preview overlay — appears above keyboard when transcript is ready */}
-            {preview !== null && (
+            {/* VOICE TO TEXT — uncomment to enable (see note at top of file) */}
+            {/* {preview !== null && (
                 <View style={styles.previewOverlay}>
                     <TextInput
                         style={styles.previewInput}
@@ -161,7 +171,7 @@ export default function TerminalScreen({ route, navigation }: Props) {
                         </TouchableOpacity>
                     </View>
                 </View>
-            )}
+            )} */}
 
             {/* Virtual Keyboard Row */}
             <View style={styles.keyboardRow}>
@@ -186,14 +196,14 @@ export default function TerminalScreen({ route, navigation }: Props) {
                         </TouchableOpacity>
                     ))}
 
-                    {/* Mic button */}
-                    <TouchableOpacity
+                    {/* VOICE TO TEXT — uncomment to enable (see note at top of file) */}
+                    {/* <TouchableOpacity
                         style={[styles.keyBtn, isListening && styles.keyBtnListening]}
                         onPress={isListening ? stopListening : startListening}
                         accessibilityLabel={isListening ? 'Stop listening' : 'Start voice input'}
                     >
                         <Text style={[styles.keyText, isListening && styles.keyTextActive]}>🎙</Text>
-                    </TouchableOpacity>
+                    </TouchableOpacity> */}
                 </ScrollView>
             </View>
         </SafeAreaView>
@@ -230,53 +240,54 @@ const styles = StyleSheet.create({
     keyBtnActive: {
         backgroundColor: '#3b82f6', // blue-500
     },
-    keyBtnListening: {
-        backgroundColor: '#dc2626', // red-600
-    },
-    previewOverlay: {
-        backgroundColor: '#18181b', // zinc-900
-        borderTopWidth: 1,
-        borderTopColor: '#3f3f46', // zinc-700
-        padding: 12,
-        gap: 8,
-    },
-    previewInput: {
-        backgroundColor: '#27272a', // zinc-800
-        borderWidth: 1,
-        borderColor: '#3f3f46', // zinc-700
-        borderRadius: 6,
-        padding: 10,
-        color: '#f4f4f5', // zinc-100
-        fontSize: 14,
-        minHeight: 60,
-        textAlignVertical: 'top',
-    },
-    previewButtons: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        gap: 8,
-    },
-    previewBtn: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 6,
-    },
-    cancelPreviewBtn: {
-        backgroundColor: '#27272a', // zinc-800
-    },
-    cancelPreviewText: {
-        color: '#d4d4d8', // zinc-300
-        fontSize: 13,
-        fontWeight: '600',
-    },
-    sendPreviewBtn: {
-        backgroundColor: '#3b82f6', // blue-500
-    },
-    sendPreviewText: {
-        color: '#fff',
-        fontSize: 13,
-        fontWeight: '600',
-    },
+    // VOICE TO TEXT — uncomment to enable (see note at top of file)
+    // keyBtnListening: {
+    //     backgroundColor: '#dc2626', // red-600
+    // },
+    // previewOverlay: {
+    //     backgroundColor: '#18181b', // zinc-900
+    //     borderTopWidth: 1,
+    //     borderTopColor: '#3f3f46', // zinc-700
+    //     padding: 12,
+    //     gap: 8,
+    // },
+    // previewInput: {
+    //     backgroundColor: '#27272a', // zinc-800
+    //     borderWidth: 1,
+    //     borderColor: '#3f3f46', // zinc-700
+    //     borderRadius: 6,
+    //     padding: 10,
+    //     color: '#f4f4f5', // zinc-100
+    //     fontSize: 14,
+    //     minHeight: 60,
+    //     textAlignVertical: 'top',
+    // },
+    // previewButtons: {
+    //     flexDirection: 'row',
+    //     justifyContent: 'flex-end',
+    //     gap: 8,
+    // },
+    // previewBtn: {
+    //     paddingHorizontal: 16,
+    //     paddingVertical: 8,
+    //     borderRadius: 6,
+    // },
+    // cancelPreviewBtn: {
+    //     backgroundColor: '#27272a', // zinc-800
+    // },
+    // cancelPreviewText: {
+    //     color: '#d4d4d8', // zinc-300
+    //     fontSize: 13,
+    //     fontWeight: '600',
+    // },
+    // sendPreviewBtn: {
+    //     backgroundColor: '#3b82f6', // blue-500
+    // },
+    // sendPreviewText: {
+    //     color: '#fff',
+    //     fontSize: 13,
+    //     fontWeight: '600',
+    // },
     keyText: {
         color: '#e4e4e7', // zinc-200
         fontSize: 12,

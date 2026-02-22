@@ -24,9 +24,6 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.mobile"
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
     "plugins": [
       "expo-secure-store",
       [
