@@ -9,8 +9,41 @@ set -e
 INSTALL_DIR="$HOME/.local/bin"
 NOTIFY_SCRIPT="$INSTALL_DIR/mobile-notify"
 
+# ── Help / list mode ──────────────────────────────────────────────────────────
+# Running with no arguments (or --list / --help) shows all available options
+# without installing anything.
+if [ "$1" = "--list" ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+  echo "mobile-terminal hook installer"
+  echo "=============================="
+  echo ""
+  echo "Configures AI coding agents to send completion signals to mobile-terminal."
+  echo "Signals travel through the existing SSH connection — no additional API required."
+  echo ""
+  # echo "Usage:"
+  # echo "  curl -fsSL <relay-url>/install.sh | bash"
+  # echo ""
+  echo "Available integrations:"
+  echo ""
+  echo "  Claude Code     — adds Stop/Notification hooks to ~/.claude/settings.json"
+  echo "                    use 'claude' as normal"
+  echo ""
+  echo "  Codex CLI       — enables OSC 9 notifications in ~/.codex/config.toml"
+  echo "                    use 'codex' as normal"
+  echo ""
+  echo "  Gemini CLI      — installs a 'mobile-gemini' wrapper script"
+  echo "                    use 'mobile-gemini' instead of 'gemini'"
+  echo ""
+  echo "  OpenCode        — installs a 'mobile-opencode' wrapper script"
+  echo "                    use 'mobile-opencode' instead of 'opencode'"
+  echo ""
+  echo "The script detects which tools are installed and configures only those."
+  echo "Safe to re-run — idempotent."
+  echo ""
+  exit 0
+fi
+
 echo "mobile-terminal hook installer"
-echo "========================"
+echo "=============================="
 echo ""
 
 # ── 1. Install mobile-notify ────────────────────────────────────────────────────
@@ -122,16 +155,24 @@ echo ""
 echo "Done. Restart your shell or run:"
 echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
 echo ""
-echo "Usage:"
+echo "Available integrations:"
 if command -v claude > /dev/null 2>&1; then
-  echo "  claude          — hooks configured automatically, use as normal"
+  echo "  claude          — hooks configured, use as normal"
+else
+  echo "  claude          — not detected (install Claude Code to enable)"
 fi
 if command -v codex > /dev/null 2>&1; then
   echo "  codex           — OSC notifications enabled, use as normal"
+else
+  echo "  codex           — not detected (install Codex CLI to enable)"
 fi
 if command -v gemini > /dev/null 2>&1; then
   echo "  mobile-gemini   — use instead of 'gemini' to get completion signals"
+else
+  echo "  mobile-gemini   — not detected (install Gemini CLI to enable)"
 fi
 if command -v opencode > /dev/null 2>&1; then
   echo "  mobile-opencode — use instead of 'opencode' to get completion signals"
+else
+  echo "  mobile-opencode — not detected (install OpenCode to enable)"
 fi

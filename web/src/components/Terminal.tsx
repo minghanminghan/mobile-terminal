@@ -103,13 +103,21 @@ export default function Terminal({ credentials, onDisconnect, onClientReady, cla
           const [, code, payload] = match
           if (code === '9999') {
             try {
-              const event = JSON.parse(payload)
-              window.dispatchEvent(new CustomEvent('CC_SIGNAL', { detail: event }))
+              const signal = JSON.parse(payload)
+              if ((window as any).ReactNativeWebView) {
+                // Native app: hand off to React Native for a local notification
+                ;(window as any).ReactNativeWebView.postMessage(JSON.stringify({ type: 'SIGNAL', signal }))
+              } else {
+                window.dispatchEvent(new CustomEvent('CC_SIGNAL', { detail: signal }))
+              }
             } catch { /* ignore malformed */ }
           } else if (code === '9') {
-            window.dispatchEvent(new CustomEvent('CC_SIGNAL', {
-              detail: { type: 'stop', tool: 'codex', message: payload }
-            }))
+            const signal = { type: 'stop', tool: 'codex', message: payload }
+            if ((window as any).ReactNativeWebView) {
+              ;(window as any).ReactNativeWebView.postMessage(JSON.stringify({ type: 'SIGNAL', signal }))
+            } else {
+              window.dispatchEvent(new CustomEvent('CC_SIGNAL', { detail: signal }))
+            }
           }
         }
         term.write(chunk)
