@@ -68,14 +68,12 @@ export default function Terminal({ credentials, onDisconnect, onClientReady, cla
     term.loadAddon(new WebLinksAddon())
     term.open(containerRef.current)
 
-    // Handle custom key events (Ctrl+V for paste, etc.)
+    // Handle custom key events
     term.attachCustomKeyEventHandler((event) => {
       if (event.type === 'keydown') {
-        // Ctrl+V or Cmd+V for paste
+        // Suppress Ctrl+V / Cmd+V so xterm.js doesn't send raw \x16.
+        // The actual paste is handled by the 'paste' event listener below.
         if ((event.ctrlKey || event.metaKey) && event.key === 'v') {
-          navigator.clipboard.readText().then(text => {
-            clientRef.current?.sendData(text)
-          })
           return false
         }
         // Ctrl+C or Cmd+C for copy (if text selected)
@@ -90,7 +88,28 @@ export default function Terminal({ credentials, onDisconnect, onClientReady, cla
 
     const client = connect(
       credentials,
-      (chunk) => term.write(chunk),
+      (chunk) => {
+        // Scan for OSC signals before handing bytes to xterm.js.
+        // OSC 9999 = cc-mobile custom protocol (JSON payload).
+        // OSC 9    = Codex CLI native notifications (plain-text payload).
+        // xterm.js silently drops unknown OSC codes so no stripping is needed.
+        const text = new TextDecoder().decode(chunk)
+        const OSC_RE = /\x1b\](\d+);([^\x07]*)\x07/g
+        for (const match of text.matchAll(OSC_RE)) {
+          const [, code, payload] = match
+          if (code === '9999') {
+            try {
+              const event = JSON.parse(payload)
+              window.dispatchEvent(new CustomEvent('CC_SIGNAL', { detail: event }))
+            } catch { /* ignore malformed */ }
+          } else if (code === '9') {
+            window.dispatchEvent(new CustomEvent('CC_SIGNAL', {
+              detail: { type: 'stop', tool: 'codex', message: payload }
+            }))
+          }
+        }
+        term.write(chunk)
+      },
       (reason) => onDisconnect(reason)
     )
     clientRef.current = client

@@ -34,6 +34,12 @@ const app = express()
 const webDistPath = path.join(__dirname, '../../web/dist')
 app.use(express.static(webDistPath))
 
+// Serve the install script for AI agent hook configuration
+app.get('/install.sh', (_req, res) => {
+  res.setHeader('Content-Type', 'text/plain')
+  res.sendFile(path.join(__dirname, '../../install.sh'))
+})
+
 // Catch-all route for SPA routing (returns index.html)
 app.use((req, res, next) => {
   if (req.method === 'GET') {

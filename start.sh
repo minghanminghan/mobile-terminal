@@ -11,9 +11,9 @@ if [ -n "$TAILSCALE_AUTH_KEY" ]; then
   
   echo "Authenticating Tailscale..."
   # Bring the Tailscale interface up with the provided auth key
-  tailscale up --authkey=$TAILSCALE_AUTH_KEY --hostname=cc-mobile-app
+  tailscale up --authkey=$TAILSCALE_AUTH_KEY --hostname=mobile-terminal-app
 fi
 
-# Finally, start the main Node processes (the VITE static server and the cc-mobile relay)
-echo "Starting cc-mobile relay and web server..."
+# Finally, start the main Node processes (the VITE static server and the mobile-terminal relay)
+echo "Starting mobile-terminal relay and web server..."
 exec npm run start:node

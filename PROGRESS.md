@@ -1,6 +1,6 @@
 # Implementation Progress
 
-This document tracks milestone-by-milestone implementation for cc-mobile.
+This document tracks milestone-by-milestone implementation for mobile-terminal.
 Each milestone includes detailed steps and a verification procedure.
 
 **Context for coding agents:** See `PLAN.md` for the project overview, architecture diagram, and tech stack rationale before starting work here.
@@ -14,7 +14,7 @@ No profiles, no Claude-specific features — just SSH in a browser.
 ### Repository Structure
 Set up a monorepo with two packages:
 ```
-cc-mobile/
+mobile-terminal/
   relay/        Node.js WebSocket↔SSH relay server
   web/          Vite + React web app
   PLAN.md
@@ -354,3 +354,77 @@ if (injected) {
 9. Tap **Send** — the text is injected at the terminal cursor; the overlay closes; nothing is auto-executed (no Enter sent)
 10. Repeat: speak, then tap **Cancel** — the overlay closes and nothing is sent to the terminal
 11. On Firefox (no `webkitSpeechRecognition`): confirm the mic button does not appear and all other virtual keys still work
+
+---
+
+## M7 — AI Agent Signal Integration (OSC Protocol)
+**Goal:** Receive structured, reliable signals from AI coding agents running on the remote server (task complete, notification) and surface them as UI events in mobile-terminal — without regex-parsing terminal output.
+
+**Supported agents:** Claude Code, Codex CLI, Gemini CLI, OpenCode.
+
+**Approach:** Use OSC (Operating System Command) escape sequences as an in-band signal channel. The hook on the remote server writes a short invisible byte sequence into the terminal stream; the relay forwards it untouched; the mobile-terminal frontend intercepts it before xterm.js and dispatches a structured window event. xterm.js silently drops unknown OSC codes so the terminal display is unaffected.
+
+Two OSC codes are handled:
+- **OSC 9999** — mobile-terminal's own protocol, emitted by `cc-notify` and all wrapper scripts. Payload is JSON: `{"type":"stop","tool":"claude"}`.
+- **OSC 9** — Codex CLI's native notification channel (enabled via `notification_method = "osc9"` in its config). Payload is plain text interpreted as a stop signal.
+
+The install script is served by the relay at `GET /install.sh`. Users run one curl command in their already-open terminal to configure everything on the host.
+
+### Steps
+
+#### 1. `install.sh` — host-side installer (new file, repo root)
+A POSIX shell script that:
+- Creates `~/.local/bin/cc-notify`: a one-liner that emits `\033]9999;<json>\007` to stdout
+- Adds `~/.local/bin` to PATH in `.bashrc`/`.zshrc`/`.profile` if not already present
+- **Claude Code** (if `claude` is in PATH): merges `Stop` and `Notification` hooks into `~/.claude/settings.json` using `python3` for safe JSON merge; hook command calls `cc-notify '{"type":"stop"}'` / `cc-notify '{"type":"notify"}'`
+- **Codex CLI** (if `codex` is in PATH): appends `notification_method = "osc9"` under `[tui]` in `~/.codex/config.toml` if not already set; Codex then emits OSC 9 natively on task completion
+- **Gemini CLI** (if `gemini` is in PATH): installs `~/.local/bin/cc-gemini` wrapper that runs `gemini "$@"` then calls `cc-notify '{"type":"stop","tool":"gemini"}'`
+- **OpenCode** (if `opencode` is in PATH): installs `~/.local/bin/cc-opencode` wrapper that runs `opencode "$@"` then calls `cc-notify '{"type":"stop","tool":"opencode"}'`
+- Idempotent: safe to re-run; never duplicates hooks or overwrites unrelated config
+- Prints a clear summary of what was installed/configured
+
+#### 2. Relay — serve `install.sh` (`relay/src/server.ts`)
+Add a `GET /install.sh` route before the existing SPA catch-all that sends the file with `Content-Type: text/plain`. The script is read from `../../install.sh` relative to the compiled relay — the Dockerfile already copies the repo root so no Dockerfile changes are needed.
+
+#### 3. Frontend — OSC stream analyzer (`web/src/components/Terminal.tsx`)
+In the `onData` callback passed to `connect()` (currently `(chunk) => term.write(chunk)`), intercept each chunk before writing to xterm.js:
+- Decode the chunk to a string and run a regex: `/\x1b\](\d+);([^\x07]*)\x07/g`
+- For each match where code is `9999`: parse payload as JSON, dispatch `window.dispatchEvent(new CustomEvent('CC_SIGNAL', { detail: event }))`
+- For each match where code is `9` (Codex): dispatch `CC_SIGNAL` with `{ type: 'stop', tool: 'codex', message: payload }`
+- Always call `term.write(chunk)` unchanged — xterm.js ignores unknown OSC codes natively, no stripping needed
+- Wrap JSON.parse in try/catch; malformed payloads are silently ignored
+
+#### 4. `SignalBanner` component (new: `web/src/components/SignalBanner.tsx`)
+A self-contained component that:
+- Listens for `CC_SIGNAL` on `window` via `useEffect`
+- Maintains `signal: { type: string, tool?: string, message?: string } | null` state
+- When a signal arrives: set state, start a 5-second auto-dismiss timer (clearTimeout + reset on each new signal)
+- Renders a fixed banner at the top of the viewport (below the nav bar, `z-40`)
+- **`stop` signal**: green background, checkmark icon, "Task complete" label + tool name if present
+- **`notify` signal**: blue background, bell icon, message text
+- Dismiss button (×) clears state immediately
+- Returns `null` when no signal is active
+
+#### 5. `TerminalWorkspace` — integrate banner + setup button (`web/src/components/TerminalWorkspace.tsx`)
+- Import and render `<SignalBanner />` inside the workspace (above the terminal, below the nav bar)
+- Add a "Setup Hooks" button to the top nav bar
+- On click: show a small modal/popover containing the install command pre-filled with `window.location.origin`:
+  ```
+  curl -fsSL <origin>/install.sh | bash
+  ```
+- One-tap copy button copies the command to the clipboard
+- Modal dismisses on outside click or pressing ×
+
+### Verification
+1. SSH into a remote server that has at least one of: `claude`, `codex`, `gemini`, `opencode`
+2. In the mobile-terminal terminal, click **Setup Hooks** in the nav bar — confirm the install command appears with the correct relay URL
+3. Copy and run the install command in the terminal — confirm it prints a summary of what was configured for each detected tool
+4. **Claude Code**: run `claude` and complete a task; confirm a green "Task complete" banner appears in mobile-terminal within a second of Claude finishing
+5. **Codex CLI**: run `codex` and complete a task; confirm the banner appears via OSC 9
+6. **Gemini CLI**: run `cc-gemini` and let it finish; confirm the banner appears
+7. **OpenCode**: run `cc-opencode` and let it finish; confirm the banner appears
+8. Confirm the banner auto-dismisses after ~5 seconds
+9. Confirm the × button dismisses the banner immediately
+10. Confirm the terminal output is visually unchanged — no garbled characters or missing output from OSC stripping
+11. Confirm running the install script a second time is safe — no duplicate hooks in `~/.claude/settings.json`, no duplicate lines in config files
+12. On a server with none of the supported tools installed, confirm the install script exits cleanly with an appropriate message

@@ -14,7 +14,7 @@ export interface Profile {
 }
 
 // Helper to manage profiles in localStorage
-const STORAGE_KEY = 'cc-mobile-profiles'
+const STORAGE_KEY = 'mobile-terminal-profiles'
 
 export function loadProfiles(): Profile[] {
   try {
@@ -57,18 +57,18 @@ export function deleteProfile(id: string) {
   const newProfiles = profiles.filter(p => p.id !== id)
   saveProfiles(newProfiles)
   // Also clear credentials
-  sessionStorage.removeItem(`cc-mobile-creds-${id}`)
+  sessionStorage.removeItem(`mobile-terminal-creds-${id}`)
 }
 
 // Helper to manage credentials in sessionStorage (cleared on tab close)
 export function saveCredentials(id: string, password?: string, privateKey?: string) {
   if (!password && !privateKey) return
   const data = JSON.stringify({ password, privateKey })
-  sessionStorage.setItem(`cc-mobile-creds-${id}`, data)
+  sessionStorage.setItem(`mobile-terminal-creds-${id}`, data)
 }
 
 export function getCredentials(id: string): { password?: string, privateKey?: string } | null {
-  const raw = sessionStorage.getItem(`cc-mobile-creds-${id}`)
+  const raw = sessionStorage.getItem(`mobile-terminal-creds-${id}`)
   if (!raw) return null
   try {
     return JSON.parse(raw)

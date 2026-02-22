@@ -1,5 +1,5 @@
 {
-  "name": "cc-mobile",
+  "name": "mobile-terminal",
   "private": true,
   "workspaces": [
     "relay",

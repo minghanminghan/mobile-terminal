@@ -253,7 +253,7 @@ This is your stable Tailscale IP. Use it as the host in cc-mobile from any devic
 
 **3. (Optional) Connect the relay to your Tailnet too**
 
-If you're running cc-mobile via Docker and want the relay itself to reach Tailnet addresses, pass your auth key at startup:
+If you're running cc-mobile via Docker and want the relay itself to reach Tailnet addresses, pass your Tailscale auth key (generated in settings) at startup:
 
 ```bash
 docker run -p 3001:3001 \

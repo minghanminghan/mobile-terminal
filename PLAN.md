@@ -1,4 +1,4 @@
-# cc-mobile
+# mobile-terminal
 
 Claude Code for mobile and web. SSH into a remote server from a browser or phone and run Claude Code against a codebase — no local dev environment required.
 
