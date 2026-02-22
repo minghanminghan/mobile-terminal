@@ -1,4 +1,4 @@
-# cc-mobile
+# mobile-terminal
 
 Use Claude Code from any browser or phone. SSH into your dev server and get a full interactive terminal -- no local dev environment required.
 
@@ -44,7 +44,7 @@ Save a project path per profile. On connect, tmux initializes all panes rooted i
 
 ### Required
 
-**tmux** -- cc-mobile attaches to a tmux session on connect (`tmux new-session -A -s cc`). This is what keeps your terminal alive when you close the browser and lets you reattach from a different device. Without tmux the session ends the moment the WebSocket drops.
+**tmux** -- mobile-terminal attaches to a tmux session on connect (`tmux new-session -A -s cc`). This is what keeps your terminal alive when you close the browser and lets you reattach from a different device. Without tmux the session ends the moment the WebSocket drops.
 
 **WSL (Windows only)** -- Windows does not ship an SSH server or a native Unix shell. WSL (Windows Subsystem for Linux) provides both. Mac and Linux users can skip this.
 
@@ -101,8 +101,8 @@ The relay is stateless. It accepts a WebSocket, opens an SSH PTY on the remote s
 ### Docker
 
 ```bash
-docker build -t cc-mobile .
-docker run -p 3001:3001 cc-mobile
+docker build -t mobile-terminal .
+docker run -p 3001:3001 mobile-terminal
 ```
 
 Open `http://localhost:3001`.
@@ -112,10 +112,10 @@ Open `http://localhost:3001`.
 ```bash
 docker run -p 3001:3001 \
   -e TAILSCALE_AUTH_KEY=tskey-auth-... \
-  cc-mobile
+  mobile-terminal
 ```
 
-The container registers as `cc-mobile-app` on your Tailnet. Approve the device in the Tailscale admin console on first run, or use a pre-approved auth key.
+The container registers as `mobile-terminal-app` on your Tailnet. Approve the device in the Tailscale admin console on first run, or use a pre-approved auth key.
 
 ### Without Docker
 
@@ -181,7 +181,7 @@ ipconfig getifaddr en0
 ip addr show | grep "inet " | grep -v 127.0.0.1
 ```
 
-Use this IP as the host in cc-mobile. Your username is the output of `whoami`.
+Use this IP as the host in mobile-terminal. Your username is the output of `whoami`.
 
 ---
 
@@ -217,7 +217,7 @@ To start SSH automatically when WSL launches, add that line to your `~/.bashrc` 
 hostname -I | awk '{print $1}'
 ```
 
-Use this IP as the host in cc-mobile. Your username is the output of `whoami` inside WSL.
+Use this IP as the host in mobile-terminal. Your username is the output of `whoami` inside WSL.
 
 > Note: The WSL IP changes on each reboot. For a stable address, use Tailscale (see below).
 
@@ -249,23 +249,54 @@ Follow the link to log in. After authentication, run:
 tailscale ip -4
 ```
 
-This is your stable Tailscale IP. Use it as the host in cc-mobile from any device on your Tailnet.
+This is your stable Tailscale IP. Use it as the host in mobile-terminal from any device on your Tailnet.
 
 **3. (Optional) Connect the relay to your Tailnet too**
 
-If you're running cc-mobile via Docker and want the relay itself to reach Tailnet addresses, pass your Tailscale auth key (generated in settings) at startup:
+If you're running mobile-terminal via Docker and want the relay itself to reach Tailnet addresses, pass your Tailscale auth key (generated in settings) at startup:
 
 ```bash
 docker run -p 3001:3001 \
   -e TAILSCALE_AUTH_KEY=tskey-auth-... \
-  cc-mobile
+  mobile-terminal
 ```
 
 ---
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|---|---|---|
-| `PORT` | `3001` | Port the relay and web server listen on |
-| `TAILSCALE_AUTH_KEY` | -- | If set, starts Tailscale and joins your Tailnet on boot |
+| Variable             | Default | Description                                             |
+|---                   |---      |---                                                      |
+| `PORT`               | `3001`  | Port the relay and web server listen on                 |
+| `TAILSCALE_AUTH_KEY` | --      | If set, starts Tailscale and joins your Tailnet on boot |
+
+---
+
+## AI Agent Hooks (Optional)
+
+Run this once on your remote server to configure your AI coding tools to send completion signals back to the terminal UI. When a task finishes, a banner appears in mobile-terminal — no polling, no watching the screen.
+
+**From the hosted app:**
+
+```bash
+curl -fsSL https://cc-mobile-3jd6f.ondigitalocean.app/install.sh | bash
+```
+
+**From a self-hosted relay** (the script is served automatically):
+
+```bash
+curl -fsSL http://<your-relay-host>:3001/install.sh | bash
+```
+
+**Or copy `install.sh` directly from this repo** and run it on the server.
+
+The script detects which tools are installed and configures only those:
+
+| Tool | What it does |
+|---|---|
+| **Claude Code** | Adds `Stop` and `Notification` hooks to `~/.claude/settings.json` — use `claude` as normal |
+| **Codex CLI** | Enables OSC 9 notifications in `~/.codex/config.toml` — use `codex` as normal |
+| **Gemini CLI** | Installs a `mobile-gemini` wrapper — use `mobile-gemini` instead of `gemini` |
+| **OpenCode** | Installs a `mobile-opencode` wrapper — use `mobile-opencode` instead of `opencode` |
+
+Safe to re-run. Only touches config for tools that are already installed.

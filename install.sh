@@ -7,22 +7,22 @@
 set -e
 
 INSTALL_DIR="$HOME/.local/bin"
-NOTIFY_SCRIPT="$INSTALL_DIR/cc-notify"
+NOTIFY_SCRIPT="$INSTALL_DIR/mobile-notify"
 
 echo "mobile-terminal hook installer"
 echo "========================"
 echo ""
 
-# ── 1. Install cc-notify ────────────────────────────────────────────────────
+# ── 1. Install mobile-notify ────────────────────────────────────────────────────
 mkdir -p "$INSTALL_DIR"
 cat > "$NOTIFY_SCRIPT" << 'EOF'
 #!/bin/sh
-# cc-notify: emit an OSC 9999 signal readable by mobile-terminal
-# Usage: cc-notify '{"type":"stop","tool":"claude"}'
+# mobile-notify: emit an OSC 9999 signal readable by mobile-terminal
+# Usage: mobile-notify '{"type":"stop","tool":"claude"}'
 printf '\033]9999;%s\007' "${1:-{\"type\":\"stop\"}}"
 EOF
 chmod +x "$NOTIFY_SCRIPT"
-echo "  ✓ Installed cc-notify → $NOTIFY_SCRIPT"
+echo "  [success] Installed mobile-notify → $NOTIFY_SCRIPT"
 
 # ── 2. Ensure ~/.local/bin is on PATH ────────────────────────────────────────
 case ":$PATH:" in
@@ -35,7 +35,7 @@ case ":$PATH:" in
       echo "export PATH=\"\$HOME/.local/bin:\$PATH\"" >> "$rc"
     done
     export PATH="$INSTALL_DIR:$PATH"
-    echo "  ✓ Added $INSTALL_DIR to PATH"
+    echo "  [success] Added $INSTALL_DIR to PATH"
     ;;
 esac
 
@@ -59,7 +59,7 @@ to_add = [
 ]
 for event, payload in to_add:
     entries = hooks.setdefault(event, [])
-    cmd = f"cc-notify '{payload}'"
+    cmd = f"mobile-notify '{payload}'"
     already = any(
         h.get("command", "") == cmd
         for entry in entries
@@ -71,7 +71,7 @@ for event, payload in to_add:
 with open(path, "w") as f:
     json.dump(cfg, f, indent=2)
 PYEOF
-  echo "  ✓ Claude Code hooks configured → $CLAUDE_SETTINGS"
+  echo "  [success] Claude Code hooks configured → $CLAUDE_SETTINGS"
 fi
 
 # ── 4. Codex CLI ─────────────────────────────────────────────────────────────
@@ -87,37 +87,51 @@ if command -v codex > /dev/null 2>&1; then
     else
       printf '\n[tui]\nnotification_method = "osc9"\n' >> "$CODEX_CONFIG"
     fi
-    echo "  ✓ Codex CLI configured (OSC 9 notifications enabled) → $CODEX_CONFIG"
+    echo "  [success] Codex CLI configured (OSC 9 notifications enabled) → $CODEX_CONFIG"
   else
-    echo "  ✓ Codex CLI already configured"
+    echo "  [success] Codex CLI already configured"
   fi
 fi
 
 # ── 5. Gemini CLI wrapper ─────────────────────────────────────────────────────
 if command -v gemini > /dev/null 2>&1; then
-  GEMINI_WRAPPER="$INSTALL_DIR/cc-gemini"
+  GEMINI_WRAPPER="$INSTALL_DIR/mobile-gemini"
   cat > "$GEMINI_WRAPPER" << 'EOF'
 #!/bin/sh
 gemini "$@"
-cc-notify '{"type":"stop","tool":"gemini"}'
+mobile-notify '{"type":"stop","tool":"gemini"}'
 EOF
   chmod +x "$GEMINI_WRAPPER"
-  echo "  ✓ Gemini CLI wrapper installed → use 'cc-gemini' instead of 'gemini'"
+  echo "  [success] Gemini CLI wrapper installed → use 'mobile-gemini' instead of 'gemini'"
 fi
 
 # ── 6. OpenCode wrapper ───────────────────────────────────────────────────────
 if command -v opencode > /dev/null 2>&1; then
-  OPENCODE_WRAPPER="$INSTALL_DIR/cc-opencode"
+  OPENCODE_WRAPPER="$INSTALL_DIR/mobile-opencode"
   cat > "$OPENCODE_WRAPPER" << 'EOF'
 #!/bin/sh
 opencode "$@"
-cc-notify '{"type":"stop","tool":"opencode"}'
+mobile-notify '{"type":"stop","tool":"opencode"}'
 EOF
   chmod +x "$OPENCODE_WRAPPER"
-  echo "  ✓ OpenCode wrapper installed → use 'cc-opencode' instead of 'opencode'"
+  echo "  [success] OpenCode wrapper installed → use 'mobile-opencode' instead of 'opencode'"
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
 echo "Done. Restart your shell or run:"
 echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+echo ""
+echo "Usage:"
+if command -v claude > /dev/null 2>&1; then
+  echo "  claude          — hooks configured automatically, use as normal"
+fi
+if command -v codex > /dev/null 2>&1; then
+  echo "  codex           — OSC notifications enabled, use as normal"
+fi
+if command -v gemini > /dev/null 2>&1; then
+  echo "  mobile-gemini   — use instead of 'gemini' to get completion signals"
+fi
+if command -v opencode > /dev/null 2>&1; then
+  echo "  mobile-opencode — use instead of 'opencode' to get completion signals"
+fi

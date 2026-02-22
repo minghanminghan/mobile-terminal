@@ -71,9 +71,13 @@ export default function Terminal({ credentials, onDisconnect, onClientReady, cla
     // Handle custom key events
     term.attachCustomKeyEventHandler((event) => {
       if (event.type === 'keydown') {
-        // Suppress Ctrl+V / Cmd+V so xterm.js doesn't send raw \x16.
-        // The actual paste is handled by the 'paste' event listener below.
+        // Ctrl+V / Cmd+V: prevent both \x16 and the native paste event,
+        // then read clipboard once ourselves.
         if ((event.ctrlKey || event.metaKey) && event.key === 'v') {
+          event.preventDefault() // stops the browser firing a paste event (which xterm.js also handles)
+          navigator.clipboard.readText().then(text => {
+            if (text) clientRef.current?.sendData(text)
+          })
           return false
         }
         // Ctrl+C or Cmd+C for copy (if text selected)
