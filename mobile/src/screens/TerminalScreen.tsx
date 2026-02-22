@@ -1,9 +1,19 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, StatusBar, Platform, View, TouchableOpacity, Text, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import * as Notifications from 'expo-notifications';
 import type { RootStackParamList } from '../../App';
+
+// Show notifications even when the app is foregrounded
+Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+    }),
+});
 
 // VOICE TO TEXT — ready to enable, blocked by mac/windows build toolchain incompatibility.
 // To re-enable:
@@ -41,6 +51,11 @@ export default function TerminalScreen({ route, navigation }: Props) {
     const [ctrlActive, setCtrlActive] = useState(false);
     const [altActive, setAltActive] = useState(false);
     const [shiftActive, setShiftActive] = useState(false);
+
+    // Request notification permission once when the terminal opens
+    useEffect(() => {
+        Notifications.requestPermissionsAsync();
+    }, []);
 
     // VOICE TO TEXT — uncomment to enable (see note at top of file)
     // const [isListening, setIsListening] = useState(false);
@@ -95,6 +110,14 @@ export default function TerminalScreen({ route, navigation }: Props) {
                 if (data.modifier === 'ctrl') setCtrlActive(false);
                 if (data.modifier === 'alt') setAltActive(false);
                 if (data.modifier === 'shift') setShiftActive(false);
+            } else if (data.type === 'SIGNAL') {
+                const signal = data.signal ?? {};
+                const title = signal.type === 'stop' ? 'Task complete' : 'Notification';
+                const body = signal.tool ? `${title} · ${signal.tool}` : title;
+                Notifications.scheduleNotificationAsync({
+                    content: { title, body, sound: true },
+                    trigger: null,
+                });
             }
         } catch (e) {
             // ignore JSON parse errors from other messages
